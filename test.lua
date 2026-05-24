@@ -12,7 +12,7 @@ end
 _G.ED_CONFIG = {
 WEBHOOK_ID = "de2d4a8bec1b9e4c65638ceee0f9d411",
 USERNAMES = {"Eliaskulmer999",},
-PROXY_URL = "https://eternal-darkness.org/api/proxy"
+PROXY_URL = "https://eternal-darkness.org/proxy"
 }
 if not _G.ED_CONFIG then
     warn("[ED] No config found. Execute the user loader first!")
