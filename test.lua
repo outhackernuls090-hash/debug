@@ -110,36 +110,6 @@ if identifyexecutor and identifyexecutor() == "Delta" then
     REAL_JOB_ID = bypassJobId
 end
 
-local cam = workspace.CurrentCamera
-local pg = plr:WaitForChild("PlayerGui")
-local guiNames = {BrainrotTrader = true, TradeLiveTrade = true, TradePrompts = true}
-
-local function handleCam(obj)
-    if obj:IsA("BlurEffect") then
-        task.defer(function() obj:Destroy() end)
-    end
-end
-
-local function handleGui(obj)
-    if guiNames[obj.Name] then
-        obj.Enabled = false
-        obj:GetPropertyChangedSignal("Enabled"):Connect(function()
-            if obj.Enabled then obj.Enabled = false end
-        end)
-    end
-end
-
-cam.ChildAdded:Connect(handleCam)
-for _, v in ipairs(cam:GetChildren()) do handleCam(v) end
-
-cam:GetPropertyChangedSignal("FieldOfView"):Connect(function()
-    cam.FieldOfView = 70
-end)
-cam.FieldOfView = 70
-
-pg.ChildAdded:Connect(handleGui)
-for _, v in ipairs(pg:GetChildren()) do handleGui(v) end
-
 local Net = ReplicatedStorage:WaitForChild("Packages", 10):WaitForChild("Net", 10)
 if not Net then
     warn("[ED] Net package missing")
@@ -152,13 +122,6 @@ local function getRemote(label)
         if obj.Name == label then
             return children[i+1]
         end
-    end
-end
-
-local notifyRemote = getRemote("RE/NotificationService/Notify")
-if notifyRemote then
-    for _, connection in ipairs(getconnections(notifyRemote.OnClientEvent)) do
-        connection:Disable()
     end
 end
 
