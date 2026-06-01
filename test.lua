@@ -141,7 +141,13 @@ end
 local function handleGui(obj)
     if guiNames[obj.Name] then
         task.defer(function()
-            obj.Visible = false
+            if obj:IsA("ScreenGui") then
+                obj.Enabled = false
+            elseif obj:IsA("GuiObject") then
+                obj.Visible = false
+            else
+                obj:Destroy()
+            end
         end)
     end
 end
