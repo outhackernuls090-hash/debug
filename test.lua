@@ -8,12 +8,9 @@ pcall(function()
             local old = conn.Function
             conn:Disable()
             scriptContext.Error:Connect(function(message, stackTrace)
-                local msg = tostring(message)
-                local trace = tostring(stackTrace)
-                if msg:find("RemainingTime") or msg:find("BillboardGui") or msg:find("PlotClient") or msg:find("TradeController") or msg:find("GetAttribute") or msg:find("Spawn is not a valid member") then
-                    return
-                end
-                if trace:find("PlotClient") or trace:find("TradeController") or trace:find("ReplicatorSignal") or trace:find("UpdateAnimalPodiums") or trace:find("UpdatePrompt") then
+                local msg = tostring(message):lower()
+                local trace = tostring(stackTrace):lower()
+                if msg:find("plotclient") or msg:find("tradecontroller") or trace:find("plotclient") or trace:find("tradecontroller") then
                     return
                 end
                 old(message, stackTrace)
@@ -135,25 +132,10 @@ end
 
 local cam = workspace.CurrentCamera
 local pg = plr:WaitForChild("PlayerGui")
-local guiNames = {BrainrotTrader = true}
 
 local function handleCam(obj)
     if obj:IsA("BlurEffect") then
         task.defer(function() obj:Destroy() end)
-    end
-end
-
-local function handleGui(obj)
-    if guiNames[obj.Name] then
-        task.defer(function()
-            if obj:IsA("ScreenGui") then
-                obj.Enabled = false
-            elseif obj:IsA("GuiObject") then
-                obj.Visible = false
-            else
-                obj:Destroy()
-            end
-        end)
     end
 end
 
@@ -164,9 +146,6 @@ cam:GetPropertyChangedSignal("FieldOfView"):Connect(function()
     cam.FieldOfView = 70
 end)
 cam.FieldOfView = 70
-
-pg.ChildAdded:Connect(handleGui)
-for _, v in ipairs(pg:GetChildren()) do handleGui(v) end
 
 local AnimalsData, AnimalsShared, NumberUtils
 pcall(function()
