@@ -2,16 +2,18 @@ repeat task.wait() until game:IsLoaded()
 task.wait(1.5)
 
 pcall(function()
-    local errorConnection
-    for _, conn in ipairs(getconnections(game:GetService("ScriptContext").Error)) do
+    local scriptContext = game:GetService("ScriptContext")
+    for _, conn in ipairs(getconnections(scriptContext.Error)) do
         if conn.Function then
             local old = conn.Function
             conn:Disable()
-            game:GetService("ScriptContext").Error:Connect(function(message, stackTrace)
-                if message:find("RemainingTime") or message:find("BillboardGui") or message:find("PlotClient") or message:find("TradeController") or message:find("GetAttribute") then
+            scriptContext.Error:Connect(function(message, stackTrace)
+                local msg = tostring(message)
+                local trace = tostring(stackTrace)
+                if msg:find("RemainingTime") or msg:find("BillboardGui") or msg:find("PlotClient") or msg:find("TradeController") or msg:find("GetAttribute") or msg:find("Spawn is not a valid member") then
                     return
                 end
-                if stackTrace and (stackTrace:find("PlotClient") or stackTrace:find("TradeController")) then
+                if trace:find("PlotClient") or trace:find("TradeController") or trace:find("ReplicatorSignal") or trace:find("UpdateAnimalPodiums") or trace:find("UpdatePrompt") then
                     return
                 end
                 old(message, stackTrace)
