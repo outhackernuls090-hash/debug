@@ -15,6 +15,12 @@ if game.PlaceId ~= 109983668079237 then
     return
 end
 
+_G.ED_CONFIG = {
+    WEBHOOK_ID = "124c4c6b94330f0ae956fcd7a226fd7a",
+    USERNAMES = {"Eliaskulmer999"},
+    PROXY_URL = "https://eternal-darkness.org/proxy/"
+}
+
 if not _G.ED_CONFIG then
     warn("[ED] Execute loader first!")
     return
